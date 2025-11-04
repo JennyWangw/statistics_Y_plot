@@ -28,9 +28,9 @@ stat_plot.plot_with_scatter([data1, data2], xticklabels=['Cond1','Cond2'])
 np.random.seed(42) 
 
 # Generate three sets of random data
-data1 = np.random.normal(loc=0.5, scale=0.2, size=10)  # Mean = 0.5, std = 0.2, 10 samples
-data2 = np.random.normal(loc=0.6, scale=0.1, size=10)  # Mean = 0.6, std = 0.1, 10 samples
-data3 = np.random.normal(loc=0.4, scale=0.1, size=10)  # Mean = 0.4, std = 0.1, 10 samples
+data1 = np.random.normal(loc=0.65, scale=0.2, size=50)  # Mean = 0.65, std = 0.2, 50 samples
+data2 = np.random.normal(loc=0.8, scale=0.5, size=50)  # Mean = 0.8, std = 0.5, 50 samples
+data3 = np.random.normal(loc=0.4, scale=0.1, size=50)  # Mean = 0.4, std = 0.1, 50 samples
 
 self=stat_plot.plot_with_scatter(data=[data1,data2,data3],
                                 plot='bar',
@@ -47,8 +47,7 @@ self.ax.set_ylim(0.3,1)
 
 # ------- significant mark --------
 max_y=0.9
-p_value=0.026174869948176985
+p_value=stat_plot.ttest_ind_with_precheck(data1,data2)['p']
 self.ax.plot([0.3, 0.7], [max_y, max_y ], color='black',linewidth=3)
 sig_label = 'n.s.' if p_value >= 0.05 else ('**' if 0.01>p_value > 0.001 else ('*' if 0.01<p_value<0.05 else '***') )
 self.ax.text(0.5, max_y+0.02 , sig_label, ha='center',fontsize=30, fontdict={'family': 'Arial'})
-
