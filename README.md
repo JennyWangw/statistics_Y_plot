@@ -107,7 +107,7 @@ Performs ANOVA for both main effects and interactions, with post-hoc tests for s
 - Add reference lines, text annotations, or highlight chance levels  
 - Automatically handles multiple datasets  
 
-**Example Image Placeholder:**  
+
 ![Example Plot](example_plot.png)
 
 ---
