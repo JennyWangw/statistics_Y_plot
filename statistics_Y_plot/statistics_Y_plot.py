@@ -12,12 +12,34 @@ warnings.filterwarnings('ignore')
 
 class statistics_Y_plot:
     def __init__(self, alpha=0.05):
+        """
+        Initialize the class with a significance threshold.
+
+        Parameters
+        ----------
+        alpha : float, optional
+            Significance level for statistical tests (default is 0.05).
+        """
+
         self.alpha = alpha
 
-    # -------------------- 共用工具函数 --------------------
+    # -------------------- Utility Functions --------------------
     @staticmethod
     def p_to_sig(p):
-        """p 值显著性标注"""
+        """
+        Convert a p-value to a significance annotation.
+
+        Parameters
+        ----------
+        p : float
+            The p-value to convert.
+
+        Returns
+        -------
+        str
+            Significance string: '***' for p<0.001, '**' for p<0.01, '*' for p<0.05, 
+            'n.s.' for not significant.
+        """
         if p < 0.001:
             return '***'
         elif p < 0.01:
@@ -30,12 +52,29 @@ class statistics_Y_plot:
     @staticmethod
     def data_to_long(data, factorA_name='FactorA', factorB_name='FactorB', subject_prefix='S'):
         """
-        当前函数仅支持2层嵌套/2变量
+        Convert nested lists or arrays into a long-format pandas DataFrame.
         
-        将嵌套 list 或 array 转成长格式 DataFrame
-        外层 list -> factorB 水平
-        内层 list -> factorA 水平
+        Assumes a TWO-level nesting corresponding to two factors:
+        - Outer list/array -> levels of Factor B
+        - Inner list/array -> levels of Factor A
+
+        Parameters
+        ----------
+        data : list of lists or arrays
+            Nested data structure with shape [factorB][factorA][subjects].
+        factorA_name : str, optional
+            Column name for the first factor (default 'FactorA').
+        factorB_name : str, optional
+            Column name for the second factor (default 'FactorB').
+        subject_prefix : str, optional
+            Prefix for subject labels (default 'S').
+
+        Returns
+        -------
+        pandas.DataFrame
+            Long-format DataFrame with columns: 'Subject', factorA_name, factorB_name, 'Value'.
         """
+
         long_data = []
         for b_idx, b_level in enumerate(data, start=1):
             for a_idx, a_list in enumerate(b_level, start=1):
@@ -53,16 +92,38 @@ class statistics_Y_plot:
         return pd.DataFrame(long_data)
 
     def run_pairedT_for_posthoc(self, df_long, factor, ttest_func):
+  	"""
+        - Perform post-hoc paired t-tests for all levels of a given factor.
+        - Applies Bonferroni correction for multiple comparisons.
+    
+        Parameters
+        ----------
+        df_long : pandas.DataFrame
+            Long-format DataFrame containing the data.
+        factor : str
+            Column name of the factor to test. This factor should have multiple levels.
+        ttest_func : callable
+            Function to perform the paired t-test. Should accept two arrays and return a p-value.
+    
+        Returns
+        -------
+	pandas.DataFrame
+            DataFrame with columns:
+            - 'Level1', 'Level2': compared factor levels
+            - 't': t-statistic
+            - 'p-unc': uncorrected p-value
+            - 'p-bonf': Bonferroni-corrected p-value
+            - 'sig': significance annotation ('***', '**', '*', 'n.s.')
+
         """
-        对某个 factor/变量内多水平 做配对 t 检验（重复测量）
-        p-Bonferroni 校正
-        """
-        levels = df_long[factor].unique() #factor是一个变量，levels是该变量的多水平
+
+
+        levels = df_long[factor].unique() # Get all levels of this factor
         results = []
         for a, b in combinations(levels, 2):
             vals_a = df_long[df_long[factor] == a].sort_values('Subject')['Value'].values
             vals_b = df_long[df_long[factor] == b].sort_values('Subject')['Value'].values
-            # 删除 NaN
+            # filter NaN
             mask = ~np.isnan(vals_a) & ~np.isnan(vals_b)
             vals_a, vals_b = vals_a[mask], vals_b[mask]
             res_t = ttest_func(vals_a, vals_b)
@@ -80,7 +141,7 @@ class statistics_Y_plot:
 
     def ttest_1samp_with_precheck(self, data, popmean=0, nan_policy='omit', return_summary=True):
         """
-        - 预处理删除有nan的值，并报告删除几个
+        - Perform a one-sample t-test with automatic NaN removal, and report removed counts
         ----------
         data : array-like
             Sample data (can include NaN).
@@ -113,9 +174,9 @@ class statistics_Y_plot:
         
         if return_summary:
             result.update({
-                'mean': f"{np.mean(data_clean):.4f}",  # 保留四位小数
+                'mean': f"{np.mean(data_clean):.4f}",
                 'std': f"{np.std(data_clean, ddof=1):.4f}", 
-                'N_clean': len(data_clean) #删除nan后的样本总数
+                'N_clean': len(data_clean) #number of sample after nan removal 
             })
         
         return result
@@ -124,26 +185,45 @@ class statistics_Y_plot:
             
 
     def ttest_ind_with_precheck(self, x, y):
-        '''
-        - 删除两组数中的nan，并报告删除数
-        - 先检验是否方差齐性
-            - 若不齐性自动换为Welch，
-            - 若齐性采用常规独立t test
-        - 自动输出对应检验方法的df自由度，并报告levene方差齐性检验的统计值
-        '''
+        """
+        Perform independent t-test with automatic NaN removal and variance check.
+
+        Steps:
+        1. Remove NaNs and report removed counts.
+        2. Check variance homogeneity using Levene's test.
+           - If unequal, use Welch's t-test.
+           - If equal, use standard independent t-test.
+        3. Return t-statistic, p-value, df, and Levene's test results.
+
+        Parameters
+        ----------
+        x, y : array-like
+            Two independent samples.
+
+        Returns
+        -------
+        dict
+            Keys:
+            - 't', 'p': t-test statistic and p-value
+            - 'df_t': degrees of freedom for the t-test/welch
+            - 'equal_var': True if variances are equal
+            - 'levene_stat', 'levene_p': Levene test statistic and p-value
+            - 'levene_df1', 'levene_df2': Levene degrees of freedom
+        """
+
         x, y = np.array(x), np.array(y)
         nan_removed_x = np.isnan(x).sum()
         nan_removed_y = np.isnan(y).sum()
-        x, y = x[~np.isnan(x)], y[~np.isnan(y)] #删除两组数中的nan
-        if nan_removed_x > 0 or nan_removed_y > 0:# 报告删除多个数（仅在有 NaN 被删除时）
+        x, y = x[~np.isnan(x)], y[~np.isnan(y)] #nan removal
+        if nan_removed_x > 0 or nan_removed_y > 0:# report removed ccounts（only when nan exits）
             print(f"Removed {nan_removed_x} NaN(s) from x, {nan_removed_y} NaN(s) from y")
 
-        lev_stat, lev_p = stats.levene(x, y)#方差齐性检验
+        lev_stat, lev_p = stats.levene(x, y)
         n1, n2 = len(x), len(y)
         df1_lev = 2 - 1       # k-1
         df2_lev = n1 + n2 - 2 # N-k
         equal_var = lev_p > self.alpha
-        res = stats.ttest_ind(x, y, equal_var=equal_var) #独立t检验/Welch检验
+        res = stats.ttest_ind(x, y, equal_var=equal_var) #ind t test /Welch
         s1, s2 = np.var(x, ddof=1), np.var(y, ddof=1)
         if equal_var:
             df_t = n1 + n2 - 2
@@ -152,23 +232,32 @@ class statistics_Y_plot:
         return {
             't': res.statistic,'p': res.pvalue,'df_t': df_t,#自由度（适用t/Welch）
             'equal_var': equal_var,#True:方差齐性
-            'levene_stat': lev_stat, 'levene_p': lev_p,'levene_df1': df1_lev,'levene_df2': df2_lev#Levene 检验统计量和 p 值
+            'levene_stat': lev_stat, 'levene_p': lev_p,'levene_df1': df1_lev,'levene_df2': df2_lev
         }
 
 
     def ttest_rel_with_precheck(self, x, y):
         """
-        - 自动删除含 NaN 的被试，并报告删除被试数量，
-        - 返回配对t检验 t 值、p 值、自由度
+        Perform a paired t-test with automatic removal of NaN-containing pairs, and report removed counts.
+
+        Parameters
+        ----------
+        x, y : array-like
+            Paired samples.
+
+        Returns
+        -------
+        dict
+            Contains t-statistic, p-value, degrees of freedom, and number of removed pairs due to NaNs.
         """
         x, y = np.array(x), np.array(y)
         mask = ~np.isnan(x) & ~np.isnan(y)
         n_removed = len(x) - np.sum(mask)
-        x_clean, y_clean = x[mask], y[mask]# 删除含 NaN 的被试
+        x_clean, y_clean = x[mask], y[mask]# remove subject with NaN values
         if n_removed > 0:
             print(f"Removed {n_removed} sample(s) due to NaN in x or y")
         res = stats.ttest_rel(x_clean, y_clean)
-        df = len(x_clean) - 1# 自由度 = 样本数 - 1
+        df = len(x_clean) - 1# df= sample N - 1
         return {
             't': res.statistic,
             'p': res.pvalue,
@@ -178,23 +267,33 @@ class statistics_Y_plot:
 
     
     
-    def one_factor_rm_anova(self, *conditions, factor_name='Condition', subject_prefix='S'):
+    def one_factor_rm_anova(self, data, factor_name='Condition', subject_prefix='S'):
         """
-        1.预处理确保所有的对应的sub都有值。若有nan删除该sub，并报告删除了几个sub 
-        2.单因素多水平重复测量 ANOVA
-        3.若p显著，事后两两配对t检验，Bonferroni校正p
-        
-        参数:
-            *conditions: 各条件的被试数据 (每个为list或array) eg. one_factor_rm_anova(x1,x2,x3)
-            factor_name: 因素名称
-            subject_prefix: 被试 ID 前缀
-        返回:
-            (anova_table, posthoc_df)
+        Perform one-way repeated-measures ANOVA with optional post-hoc paired t-tests.
+
+        Steps:
+        1. Remove subjects with any missing values and report the number removed.
+        2. Perform one-factor repeated-measures ANOVA.
+        3. If the ANOVA is significant, run post-hoc paired t-tests with Bonferroni correction.
+
+        Parameters
+        ----------
+        *conditions : array-like
+            Each argument represents one condition (list or array of subject data).
+        factor_name : str, optional
+            Name of the factor (default 'Condition').
+        subject_prefix : str, optional
+            Prefix for subject IDs (default 'S').
+
+        Returns
+        -------
+        tuple
+            (anova_table, posthoc_df) where posthoc_df is None if no post-hoc tests were performed.
         """
-        data = np.column_stack(conditions)
+
         n_before = data.shape[0]
         
-        mask = ~np.isnan(data).any(axis=1)# 删除任何含有 NaN 的被试
+        mask = ~np.isnan(data).any(axis=1)# remove subject with NaN values
         data_clean = data[mask]
         n_after = data_clean.shape[0]
         n_dropped = n_before - n_after
@@ -227,17 +326,32 @@ class statistics_Y_plot:
 
     
     def two_factor_rm_anova(self, data, factorA_name='FactorA', factorB_name='FactorB', subject_prefix='S'):
-        '''
-        data:[[a1,a2,a3],[b1,b2,b3],[c1,c2,v3]...] 仅支持2层嵌套/2变量（每个变量可以是多水平）
-            data.shape[0]表示第1个变量（factorB）的多水平，
-            data[0,:].shape[0]表示第2个变量（factorA）的多水平，
-            a1是一个list或者一维array
-        - 预处理：删除有条件缺失值的被试，报告删除几个sub
-        - 2 way repeated ANOVA
-        - 若主效应显著，事后简单效应配对t检验
-        
-        '''
-        df_long = self.data_to_long(data, factorA_name, factorB_name, subject_prefix) #转换数据
+"""
+        Perform two-way repeated-measures ANOVA for nested data (two factors, possibly multi-level).
+
+        Steps:
+        1. Convert nested data to long-format DataFrame.
+        2. Remove subjects with any missing or incomplete data and report how many were removed.
+        3. Perform two-way repeated-measures ANOVA.
+        4. If main effects are significant, perform post-hoc paired t-tests for simple effects.
+
+        Parameters
+        ----------
+        data : list of lists or arrays
+            Nested data structure: outer list corresponds to factor B levels, inner lists correspond to factor A levels.
+        factorA_name : str, optional
+            Name of factor A (default 'FactorA').
+        factorB_name : str, optional
+            Name of factor B (default 'FactorB').
+        subject_prefix : str, optional
+            Prefix for subject IDs (default 'S').
+
+        Returns
+        -------
+        tuple
+            (anova_table, posthoc_dict) where posthoc_dict contains post-hoc DataFrames for significant factors or None.
+        """
+        df_long = self.data_to_long(data, factorA_name, factorB_name, subject_prefix) 
 
         subjects_total = df_long['Subject'].unique()
         factorA_levels = df_long[factorA_name].unique()
@@ -246,7 +360,7 @@ class statistics_Y_plot:
         for sub in subjects_total:
             df_sub = df_long[df_long['Subject'] == sub]
             if not df_sub['Value'].isna().any() and \
-               len(df_sub) == len(factorA_levels) * len(factorB_levels):  # 条件 1: 没有 NaN； 条件 2: 每个 factorA×factorB 组合都有值
+               len(df_sub) == len(factorA_levels) * len(factorB_levels):  # condi 1: without NaN； condi 2: valid value for every factorA×factorB combo
                 valid_subjects.append(sub)
     
         n_dropped = len(subjects_total) - len(valid_subjects)
@@ -274,22 +388,48 @@ class statistics_Y_plot:
 
 
 
-    #———————————————————————画图—————————————————————————————————————————————
+    #———————————————————————visualization—————————————————————————————————————————————
     def set_plot_style(self, ax, xlabel='', ylabel='', xticklabels=None,
                        xlabelpad=15,fontsize_xlabel=30, fontsize_ylabel=30, fontsize_xtick=28,fontsize_ytick=28,
                        spine_width=5, tick_length=15, y_major_locator=3,x_rotation=0,percent_mode=None):
+
         """
-        统一调整 matplotlib 图形样式
-        
-        ax: matplotlib Axes 对象
-        xlabel, ylabel: 坐标轴标签
-        xticklabels: 自定义 x 刻度标签
-        xlabelpad: x轴标签间距
-        fontsize_label: 坐标轴标签字体大小
-        fontsize_tick: 刻度字体大小
-        spine_width: 坐标轴粗细
-        tick_length: 刻度长度
-        y_major_locator: y轴主刻度间距
+        Standardize the styling of a matplotlib Axes object.
+    
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes
+            The axes object to style.
+        xlabel : str, optional
+            Label for the x-axis (default '').
+        ylabel : str, optional
+            Label for the y-axis (default '').
+        xticklabels : list of str or None, optional
+            Custom labels for x-axis ticks (default None).
+        xlabelpad : float, optional
+            Padding between x-axis label and axis in points (default 15).
+        fontsize_xlabel : int, optional
+            Font size of x-axis label (default 30).
+        fontsize_ylabel : int, optional
+            Font size of y-axis label (default 30).
+        fontsize_xtick : int, optional
+            Font size of x-axis tick labels (default 28).
+        fontsize_ytick : int, optional
+            Font size of y-axis tick labels (default 28).
+        spine_width : float, optional
+            Width of axis spines (default 5).
+        tick_length : float, optional
+            Length of ticks (default 15).
+        y_major_locator : float, optional
+            Spacing between major y-axis ticks (default 3).
+        x_rotation : float, optional
+            Rotation angle of x-axis tick labels in degrees (default 0).
+        percent_mode : {'percent', None}, optional
+            If 'percent', format y-axis labels as percentages (default None).
+    
+        Returns
+        -------
+        None
         """
         ax.set_xlabel(xlabel, fontsize=fontsize_xlabel, fontdict={'family': 'Arial'}, labelpad=xlabelpad)
         ax.set_ylabel(ylabel, fontsize=fontsize_ylabel, fontdict={'family': 'Arial'})
@@ -299,19 +439,19 @@ class statistics_Y_plot:
         plt.xticks(fontsize=fontsize_xtick)
         plt.yticks(fontsize=fontsize_ytick)
 
-        # 坐标轴边框
+        # Axis spines
         ax.spines['left'].set_linewidth(spine_width)
         ax.spines['bottom'].set_linewidth(spine_width)
 
-        # 坐标轴刻度
+        # Axis ticks
         plt.tick_params(axis='both', which='major', width=spine_width, length=tick_length)
 
-        # y轴刻度间距
+        # Set y-axis major tick spacing
         ax.yaxis.set_major_locator(MultipleLocator(y_major_locator))
 
-        # 设置 y 轴标签为百分位数格式
+        # Format y-axis as percentage if requested
         def percent_formatter(x, pos):
-            return f'{x*100:.0f}%'  # 将数值转换为百分比
+            return f'{x*100:.0f}%' 
         if percent_mode:
             ax.yaxis.set_major_formatter(FuncFormatter(percent_formatter))
 
@@ -324,15 +464,46 @@ class statistics_Y_plot:
         self, data, palette=None, p_value=None,plot='bar',
         xlabel='', ylabel='', xticklabels=None, figsize=(6,5),
         fontsize_xlabel=30, fontsize_ylabel=30, fontsize_xtick=28,fontsize_ytick=28,y_major_locator=3,x_rotation=0,percent_mode=None,):
-        """
-        封装 violin/bar + scatter + errorbar 
-        
-        参数：
-        palette: dict, x_col取值对应颜色 eg.{'A':'red','B':'green','C':'blue'},
-        p_value: float, 用于显著性标注
-        xlabel, ylabel: str，坐标轴标签
-        xticklabels: list，自定义 x 刻度标签
-        figsize: tuple，画布大小
+    """
+        Create a combined plot with bar/violin, scatter, and error bars.
+    
+        Parameters
+        ----------
+        data : array-like or DataFrame
+            Data to plot.
+        palette : dict, optional
+            Mapping from x-axis categories to colors, e.g., {'A': 'red', 'B': 'green', 'C': 'blue'}.
+        p_value : float, optional
+            p-value for significance annotation on the plot.
+        plot : {'bar', 'violin'}, optional
+            Type of main plot (default 'bar').
+        xlabel : str, optional
+            Label for the x-axis (default '').
+        ylabel : str, optional
+            Label for the y-axis (default '').
+        xticklabels : list of str, optional
+            Custom labels for x-axis ticks (default None).
+        figsize : tuple, optional
+            Figure size in inches (width, height) (default (6, 5)).
+        fontsize_xlabel : int, optional
+            Font size for x-axis label (default 30).
+        fontsize_ylabel : int, optional
+            Font size for y-axis label (default 30).
+        fontsize_xtick : int, optional
+            Font size for x-axis tick labels (default 28).
+        fontsize_ytick : int, optional
+            Font size for y-axis tick labels (default 28).
+        y_major_locator : float, optional
+            Spacing between major y-axis ticks (default 3).
+        x_rotation : float, optional
+            Rotation angle of x-axis tick labels in degrees (default 0).
+        percent_mode : {'percent', None}, optional
+            If 'percent', format y-axis labels as percentages (default None).
+    
+        Returns
+        -------
+        matplotlib.axes.Axes
+            The axes object of the created plot.
         """
         self.fig, self.ax = plt.subplots(figsize=figsize)
         x_col='group'
@@ -346,7 +517,7 @@ class statistics_Y_plot:
         if plot=='violin':
             v=sns.violinplot(data=df,x=x_col,y=y_col,order=xticklabels,palette=palette,inner=None,width=0.4,ax=self.ax)# violin
             for violin in v.collections:
-                violin.set_alpha(0.3)   # 对每个 PolyCollection 设置透明度
+                violin.set_alpha(0.3)   # Set transparency (alpha) for each PolyCollection
         elif plot=='bar':
             sns.barplot(data=df,x=x_col,y=y_col,order=xticklabels,palette=palette,alpha=0.3,ci=0,ax=self.ax)
         
