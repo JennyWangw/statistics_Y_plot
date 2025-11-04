@@ -92,7 +92,7 @@ class statistics_Y_plot:
         return pd.DataFrame(long_data)
 
     def run_pairedT_for_posthoc(self, df_long, factor, ttest_func):
-  	"""
+      	"""
         - Perform post-hoc paired t-tests for all levels of a given factor.
         - Applies Bonferroni correction for multiple comparisons.
     
@@ -326,7 +326,7 @@ class statistics_Y_plot:
 
     
     def two_factor_rm_anova(self, data, factorA_name='FactorA', factorB_name='FactorB', subject_prefix='S'):
-"""
+        """
         Perform two-way repeated-measures ANOVA for nested data (two factors, possibly multi-level).
 
         Steps:
@@ -464,7 +464,7 @@ class statistics_Y_plot:
         self, data, palette=None, p_value=None,plot='bar',
         xlabel='', ylabel='', xticklabels=None, figsize=(6,5),
         fontsize_xlabel=30, fontsize_ylabel=30, fontsize_xtick=28,fontsize_ytick=28,y_major_locator=3,x_rotation=0,percent_mode=None,):
-    """
+        """
         Create a combined plot with bar/violin, scatter, and error bars.
     
         Parameters
