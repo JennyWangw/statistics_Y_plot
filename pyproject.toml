@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "statistics-y-plot"          # pip 安装时的名字，建议用小写和中横线
+version = "0.1.0"
+description = "A Python package for statistical analysis and visualization of repeated-measure data."
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+  { name="Jenny Wang", email="772159842@qq.com" }
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "scipy",
+    "seaborn",
+    "statsmodels"
+]
+
+[project.urls]
+Homepage = "https://github.com/JennyWangw/statistics_Y_plot"
