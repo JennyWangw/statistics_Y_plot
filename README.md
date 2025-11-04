@@ -8,7 +8,7 @@ It is designed for researchers and data scientists who need a clean workflow for
 ## Installation
 
 ```bash
-pip install git+https://github.com/yourusername/statistics_Y_plot.git 
+pip install git+https://github.com/JennyWangw/statistics_Y_plot.git 
 ```
 
 ---
