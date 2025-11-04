@@ -1,7 +1,8 @@
 # statistics_Y_plot
 
-`statistics_Y_plot` is a Python package for fast and convenient **statistical analysis and visualization**.  
-It is designed for researchers and data scientists who need a clean workflow for t-tests, repeated-measures ANOVA, post-hoc analysis, and high-quality visualization in Python.
+`statistics_Y_plot` is a Python package for **fast statistical analysis and publication-quality visualization**.  
+It provides easy-to-use wrappers for t-tests, repeated-measures ANOVA, and customized plots.
+
 
 ---
 
@@ -31,9 +32,15 @@ pip install git+https://github.com/JennyWangw/statistics_Y_plot.git
 ![Example Plot](example_plot.png)
 
 ---
+## 🧩 Quick Start
+
+```python
+from statistics_Y_plot import statistics_Y_plot
+import numpy as np
 
 # Initialize
 sp = statistics_Y_plot(alpha=0.05)
+```
 
 ## 🧪 One-sample t-test
 
