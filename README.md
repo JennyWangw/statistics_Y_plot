@@ -30,6 +30,28 @@ pip install git+https://github.com/yourusername/statistics_Y_plot.git
 
 ## Quick Overview
 
+---
+
+### Visualization Examples
+
+#### Bar Plot with Scatter and Error Bars
+- Displays mean ± error, scatter of individual data points  
+- Custom color palette and labels  
+- Percent-formatted y-axis  
+- Reference line and significance annotation  
+
+#### Advanced Customization
+- Adjust figure size, font sizes, tick spacing  
+- Rotate x-axis labels  
+- Add reference lines, text annotations, or highlight chance levels  
+- Automatically handles multiple datasets  
+
+
+![Example Plot](example_plot.png)
+
+---
+
+## Statistics
 ### 1. One-sample t-test
 Automatically removes missing values and reports how many samples were excluded.  
 **Example Result:**
@@ -88,26 +110,4 @@ Performs ANOVA for both main effects and interactions, with post-hoc tests for s
 | FactorA:FactorB | 1.34    | 2      | 9      | 0.303  | n.s.|
 
 *Post-hoc results are reported for significant main effects.*
-
----
-
-## Visualization Examples
-
-### Bar Plot with Scatter and Error Bars
-- Displays mean ± error, scatter of individual data points  
-- Custom color palette and labels  
-- Percent-formatted y-axis  
-- Reference line and significance annotation  
-
----
-
-### Advanced Customization
-- Adjust figure size, font sizes, tick spacing  
-- Rotate x-axis labels  
-- Add reference lines, text annotations, or highlight chance levels  
-- Automatically handles multiple datasets  
-
-
-![Example Plot](example_plot.png)
-
 
