@@ -157,7 +157,7 @@ class statistics_Y_plot:
         result : dict
             Contains t-statistic, p-value, df, and optionally summary statistics.
         """
-
+	data = np.array(data)
         data_clean = data[~np.isnan(data)]
         df = len(data_clean) - 1
 
@@ -290,7 +290,7 @@ class statistics_Y_plot:
         tuple
             (anova_table, posthoc_df) where posthoc_df is None if no post-hoc tests were performed.
         """
-
+	data = np.array(data)
         n_before = data.shape[0]
         
         mask = ~np.isnan(data).any(axis=1)# remove subject with NaN values
