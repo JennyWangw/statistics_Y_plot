@@ -5,27 +5,26 @@ It is designed for researchers and data scientists who need a clean workflow for
 
 ---
 
+## Installation
+
+```bash
+pip install git+https://github.com/yourusername/statistics_Y_plot.git
+
+---
+
 ## Key Features
 
-1. **Comprehensive Statistical Functions**  
-   - One-sample t-tests with automatic removal of missing data (NaN)  
-   - Independent t-tests with automatic Welch correction when variances are unequal  
-   - Paired t-tests with automatic handling of missing pairs  
-   - One-way and two-way repeated-measures ANOVA  
-   - Automatic post-hoc paired t-tests with Bonferroni correction  
+1. **Automatic Statistical Analysis**  
+   - Automatically handles missing data  
+   - Automatically selects the appropriate t-test or Welch test based on variance equality  
+   - Automatically performs post-hoc paired t-tests for ANOVA with Bonferroni correction  
+   - Automatically annotates significance in summaries  
+
 
 2. **High-quality Visualization**  
-   - Bar or violin plots combined with scatter points and error bars  
-   - Customizable color palettes and x/y labels  
-   - Percent-formatted y-axis for proportions  
-   - Automatic significance markers, reference lines, and annotations  
-
-3. **Ease of Use**  
-   - Simple, consistent API  
-   - Automatically cleans missing data  
-   - Automatically selects correct t-test type based on variance equality  
-   - Adjustable fonts, tick spacing, and figure sizes for publication-ready plots  
-
+   - Generates bar or violin plots with scatter points and error bars  
+   - Supports percent-formatted y-axis for proportions  
+   - Adjustable fonts, tick spacing, and figure sizes  
 ---
 
 ## Quick Overview
@@ -111,8 +110,3 @@ Performs ANOVA for both main effects and interactions, with post-hoc tests for s
 ![Example Plot](example_plot.png)
 
 ---
-
-## Installation
-
-```bash
-pip install git+https://github.com/yourusername/statistics_Y_plot.git
