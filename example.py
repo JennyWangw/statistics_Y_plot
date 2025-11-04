@@ -18,7 +18,7 @@ print(stat_plot.ttest_ind_with_precheck(data1,data2))
 print(stat_plot.ttest_rel_with_precheck(data1,data2))
 
 # One-way repeated-measure ANOVA
-anova_table, posthoc_df = stat_plot.one_factor_rm_anova(data1, data2, factor_name='Condition')
+anova_table, posthoc_df = stat_plot.one_factor_rm_anova([data1, data2], factor_name='Condition')
 
 # Plot
 stat_plot.plot_with_scatter([data1, data2], xticklabels=['Cond1','Cond2'])
