@@ -8,7 +8,7 @@ It is designed for researchers and data scientists who need a clean workflow for
 ## Installation
 
 ```bash
-pip install git+https://github.com/yourusername/statistics_Y_plot.git
+pip install git+https://github.com/yourusername/statistics_Y_plot.git ```
 
 ---
 
@@ -109,4 +109,4 @@ Performs ANOVA for both main effects and interactions, with post-hoc tests for s
 
 ![Example Plot](example_plot.png)
 
----
+
