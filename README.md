@@ -99,9 +99,6 @@ Performs ANOVA for both main effects and interactions, with post-hoc tests for s
 - Percent-formatted y-axis  
 - Reference line and significance annotation  
 
-**Example Image Placeholder:**  
-![Example Plot](example_plot.png)
-
 ---
 
 ### Advanced Customization
@@ -111,7 +108,7 @@ Performs ANOVA for both main effects and interactions, with post-hoc tests for s
 - Automatically handles multiple datasets  
 
 **Example Image Placeholder:**  
-![Advanced Customization](example_plot_custom.png)
+![Example Plot](example_plot.png)
 
 ---
 
