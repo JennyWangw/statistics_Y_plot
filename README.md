@@ -42,7 +42,7 @@ import numpy as np
 sp = statistics_Y_plot(alpha=0.05)
 ```
 
-## 🧪 One-sample t-test
+## One-sample t-test
 
 **Function**
 
@@ -67,7 +67,7 @@ Removed 1 NaN value(s) out of 5 total samples.
 
 ---
 
-## ⚖️ Independent t-test
+## Independent t-test
 
 **Function**
 
@@ -94,7 +94,7 @@ Removed 1 NaN(s) from x, 0 NaN(s) from y
 
 ---
 
-## 🔁 Paired t-test
+## Paired t-test
 
 **Function**
 
@@ -120,7 +120,7 @@ Removed 1 sample(s) due to NaN in x or y
 
 ---
 
-## 📈 One-factor Repeated-measures ANOVA
+## One-factor Repeated-measures ANOVA
 
 **Function**
 
@@ -156,7 +156,7 @@ Condition    8.75      2.0      4.0   0.037      *
 
 ---
 
-## 🧮 Two-factor Repeated-measures ANOVA
+## Two-factor Repeated-measures ANOVA
 
 **Function**
 
@@ -190,7 +190,7 @@ A:B           0.80      1.0      2.0   0.46    n.s.
 
 ---
 
-## 🎯 Plotting
+## Plotting
 
 **Function**
 
@@ -217,7 +217,7 @@ This creates a **bar + scatter + error bar plot** with customizable aesthetics.
 
 ---
 
-## 🧰 Helper Function
+## Helper Function
 
 **Convert nested data to long format**
 
@@ -243,7 +243,7 @@ print(df_long.head())
 
 ---
 
-## ✨ Summary
+## Summary
 
 | Function                    | Purpose                                | Input Type     | Output                 |
 | --------------------------- | -------------------------------------- | -------------- | ---------------------- |
@@ -255,15 +255,5 @@ print(df_long.head())
 | `plot_with_scatter`         | Plot bar/violin + scatter              | list of arrays | matplotlib object      |
 | `data_to_long`              | Convert nested lists to long DataFrame | list           | DataFrame              |
 
----
-
-## 📦 Dependencies
-
-* `numpy`
-* `pandas`
-* `scipy`
-* `seaborn`
-* `matplotlib`
-* `statsmodels`
 
 
