@@ -50,14 +50,15 @@ class statistics_Y_plot:
             return 'n.s.'
     
     @staticmethod
-    def data_to_long(data, factorA_name='FactorA', factorB_name='FactorB', subject_prefix='S'):
+    def data_to_long(data, factorA_name='FactorA', factorB_name='FactorB', subject_prefix='S',factorA_levels=None,factorB_levels=None):
         """
         Convert nested lists or arrays into a long-format pandas DataFrame.
         
         Assumes a TWO-level nesting corresponding to two factors:
-        - Outer list/array -> levels of Factor B
-        - Inner list/array -> levels of Factor A
-
+        - Outer list/array -> levels of Factor B:c or d
+        - Inner list/array -> levels of Factor A:c1,c2,c3 or d1,d2,d3
+        e.g. data=[[c1,c2,c3],[d1,d2,d3]]
+        
         Parameters
         ----------
         data : list of lists or arrays
@@ -68,7 +69,10 @@ class statistics_Y_plot:
             Column name for the second factor (default 'FactorB').
         subject_prefix : str, optional
             Prefix for subject labels (default 'S').
-
+        factorA_levels: list, optinal
+            default:['A1','A2',...]
+        factorB_levels: list, optinal
+            default:['B1','B2',...]
         Returns
         -------
         pandas.DataFrame
@@ -76,17 +80,24 @@ class statistics_Y_plot:
         """
 
         long_data = []
-        for b_idx, b_level in enumerate(data, start=1):
-            for a_idx, a_list in enumerate(b_level, start=1):
-                try:
-                    iter(a_list)
-                except TypeError:
+        nB = len(data)
+        nA = len(data[0]) if nB > 0 else 0
+        
+        # default A1/A2..., B1/B2...
+        if factorA_levels is None:
+            factorA_levels = [f'A{i+1}' for i in range(nA)]
+        if factorB_levels is None:
+            factorB_levels = [f'B{i+1}' for i in range(nB)]
+    
+        for b_idx, b_level in enumerate(data, start=0):
+            for a_idx, a_list in enumerate(b_level, start=0):
+                if not hasattr(a_list, '__iter__') or isinstance(a_list, (str, bytes)):
                     a_list = [a_list]
                 for sub_idx, value in enumerate(a_list, start=1):
                     long_data.append({
                         'Subject': f'{subject_prefix}{sub_idx}',
-                        factorA_name: f'A{a_idx}',
-                        factorB_name: f'B{b_idx}',
+                        factorA_name: factorA_levels[a_idx],
+                        factorB_name: factorB_levels[b_idx],
                         'Value': value
                     })
         return pd.DataFrame(long_data)
@@ -94,7 +105,10 @@ class statistics_Y_plot:
     def run_pairedT_for_posthoc(self, df_long, factor, ttest_func):
         """
         - Perform post-hoc paired t-tests for all levels of a given factor.
-        - Applies Bonferroni correction for multiple comparisons.
+        - For single factor with >2 levels: all pairwise comparisons with Bonferroni.
+        - For interaction: identify factor with 2 levels (split_factor). 
+            Then for each level of the other factor (test_factor), perform paired t-tests
+            between the two levels of split_factor for corresponding subjects.
     
         Parameters
         ----------
@@ -117,27 +131,65 @@ class statistics_Y_plot:
 
         """
 
-
-        levels = df_long[factor].unique() # Get all levels of this factor
-        results = []
-        for a, b in combinations(levels, 2):
-            vals_a = df_long[df_long[factor] == a].sort_values('Subject')['Value'].values
-            vals_b = df_long[df_long[factor] == b].sort_values('Subject')['Value'].values
-            # filter NaN
-            mask = ~np.isnan(vals_a) & ~np.isnan(vals_b)
-            vals_a, vals_b = vals_a[mask], vals_b[mask]
-            res_t = ttest_func(vals_a, vals_b)
-            p_corr = min(res_t['p'] * len(list(combinations(levels, 2))), 1.0)
-            results.append({
-                'Level1': a,
-                'Level2': b,
-                't': res_t['t'],
-                'p-unc': res_t['p'],
-                'p-bonf': p_corr,
-                'sig': self.p_to_sig(p_corr)
-            })
-        return pd.DataFrame(results)
-
+        if ":" not in factor:
+            levels = df_long[factor].unique() # Get all levels of this factor
+            results = []
+            for a, b in combinations(levels, 2):
+                vals_a = df_long[df_long[factor] == a].sort_values('Subject')['Value'].values
+                vals_b = df_long[df_long[factor] == b].sort_values('Subject')['Value'].values
+                # filter NaN
+                mask = ~np.isnan(vals_a) & ~np.isnan(vals_b)
+                vals_a, vals_b = vals_a[mask], vals_b[mask]
+                res_t = ttest_func(vals_a, vals_b)
+                p_corr = min(res_t['p'] * len(list(combinations(levels, 2))), 1.0)
+                results.append({
+                    'Level1': a,
+                    'Level2': b,
+                    't': res_t['t'],
+                    'p-unc': res_t['p'],
+                    'p-bonf': p_corr,
+                    'sig': self.p_to_sig(p_corr)
+                })
+            return pd.DataFrame(results)
+        else:#interaction
+            f1, f2 = factor.split(':')
+            levels_f1 = df_long[f1].unique()
+            levels_f2 = df_long[f2].unique()
+            if len(levels_f1) == 2:
+                split_factor, test_factor = f1, f2
+            elif len(levels_f2) == 2:
+                split_factor, test_factor = f2, f1
+            else:
+                return None  # skip if neither factor has 2 levels
+    
+            results = []
+            for test_level in df_long[test_factor].unique():
+                df_sub = df_long[df_long[test_factor] == test_level]
+                split_levels = df_sub[split_factor].unique()
+                if len(split_levels) != 2:
+                    continue  # skip if not 2 levels in this subset
+            
+                # 对齐 Subject
+                df_a = df_sub[df_sub[split_factor] == split_levels[0]].set_index('Subject')
+                df_b = df_sub[df_sub[split_factor] == split_levels[1]].set_index('Subject')
+                common_subjects = df_a.index.intersection(df_b.index)
+                vals_a = df_a.loc[common_subjects, 'Value'].values
+                vals_b = df_b.loc[common_subjects, 'Value'].values
+                mask = ~np.isnan(vals_a) & ~np.isnan(vals_b)
+                vals_a, vals_b = vals_a[mask], vals_b[mask]
+                
+                res_t = ttest_func(vals_a, vals_b)
+                p_corr = min(res_t['p'] * 1, 1.0)  # one comparison per test_level
+                results.append({
+                    split_factor+'_level': test_level,
+                    'Level1': levels_f1[0] if split_factor == f1 else levels_f2[0],
+                    'Level2': levels_f1[1] if split_factor == f1 else levels_f2[1],
+                    't': res_t['t'],
+                    'p-unc': res_t['p'],
+                    'p-bonf': p_corr,
+                    'sig': self.p_to_sig(p_corr)
+                })
+            return pd.DataFrame(results)
 
     def ttest_1samp_with_precheck(self, data, popmean=0, nan_policy='omit', return_summary=True):
         """
@@ -376,7 +428,7 @@ class statistics_Y_plot:
         print(aov_table)
 
         posthoc_dict = {} #post-hoc
-        for factor in [factorA_name, factorB_name]:
+        for factor in [factorA_name, factorB_name,f'{factorA_name}:{factorB_name}']:
             if aov_table.loc[factor, 'Pr > F'] < self.alpha:
                 print(f'\nPost-hoc for {factor}')
                 posthoc_dict[factor] = self.run_pairedT_for_posthoc(df_long_clean, factor, self.ttest_rel_with_precheck)
@@ -540,3 +592,104 @@ class statistics_Y_plot:
                             y_major_locator=y_major_locator,x_rotation=x_rotation,percent_mode=percent_mode)
         return self
 
+    def two_factor_with_hue(self, df, x, y, hue,plot='bar', palette=None, figsize=(6,5),xlabel='', ylabel='',
+                             xticklabels=None, fontsize_xlabel=30,fontsize_ylabel=30,fontsize_xtick=28,fontsize_ytick=28,
+                             y_major_locator=3,x_rotation=0,percent_mode=None,legend_loc=(1,0.9),legend_fontsize=20):
+        '''
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Long-format DataFrame containing the data to plot.(outcome from data_to_long)
+        x : str
+            Column name for the x-axis factor.
+        y : str
+            Column name for the dependent variable to plot.
+        hue : str
+            Column name for grouping (hue) factor.
+        palette : dict or list, optional
+            Colors to use for the bars for each hue level. Default is None (matplotlib default palette).
+        figsize : tuple, optional
+            Figure size in inches (width, height). Default is (6, 5).
+        xlabel : str, optional
+            Label for the x-axis. Default is ''.
+        ylabel : str, optional
+            Label for the y-axis. Default is ''.
+        xticklabels : list, optional
+            Custom labels for x-axis ticks. Default is None (uses categorical names from `x`).
+        fontsize_xlabel : int, optional
+            Font size for the x-axis label. Default is 30.
+        fontsize_ylabel : int, optional
+            Font size for the y-axis label. Default is 30.
+        fontsize_xtick : int, optional
+            Font size for x-axis tick labels. Default is 28.
+        fontsize_ytick : int, optional
+            Font size for y-axis tick labels. Default is 28.
+        y_major_locator : int, optional
+            Interval for major ticks on y-axis. Default is 3.
+        x_rotation : int, optional
+            Rotation angle for x-axis tick labels. Default is 0.
+        percent_mode : bool, optional
+            If True, y-axis values are formatted as percentages. Default is None.
+        legend_loc : tuple or str, optional
+            Legend location, either a string (e.g., 'upper right') or coordinates (x, y). Default is (1, 0.9).
+        legend_fontsize : int, optional
+            Font size for legend labels. Default is 20.
+    
+        Returns
+        -------
+        self : object
+            Returns the current object instance for method chaining.
+    
+        Notes
+        -----
+        - Error bars represent mean ± SEM for each condition.
+        - Scatter points are jittered and overlaid to show individual data distribution.
+        - Legend is automatically adjusted to avoid duplication when multiple layers are plotted.
+        ''' 
+        summary = df.groupby([x, hue])[y].agg(['mean', 'sem']).reset_index()
+        self.fig, self.ax = plt.subplots(figsize=figsize)
+        if plot =='bar':
+            sns.barplot(data=df,x=x,y=y,hue=hue,ci=None, palette=palette,capsize=0.1,alpha=0.3,ax=self.ax)
+        elif plot=='line':
+            n_hue = len(df[hue].unique())
+            x_unique = df[x].unique()
+            width = 0.4  # Hue offset for separating lines/points within each x-category
+            for j, hj in enumerate(df[hue].unique()):
+                x_pos = [i + j*width - width*(n_hue-1)/2 for i in range(len(x_unique))]
+                y_mean = [summary[(summary[x]==xi) & (summary[hue]==hj)]['mean'].item() for xi in x_unique]
+                y_sem  = [summary[(summary[x]==xi) & (summary[hue]==hj)]['sem'].item() for xi in x_unique]
+        
+                self.ax.plot(x_pos, y_mean, marker='o', label=hj,linewidth=5, 
+                             color=palette[hj] if palette else None, alpha=0.8, zorder=5)
+
+        
+        sns.stripplot(data=df,x=x,y=y,hue=hue,jitter=True, dodge=True,palette=["white"],
+                      marker='o', edgecolor='black', color='white',
+                        size=6, linewidth=1, zorder=3,alpha=0.5,ax=self.ax)
+        x_coords = []
+        for i, cat in enumerate(df[x].unique()):
+            for j, h in enumerate(df[hue].unique()):
+                x_coords.append((i, j))
+    
+        for i, xi in enumerate(df[x].unique()):
+            for j, hj in enumerate(df[hue].unique()):
+                bar_x = i + j*0.4 - 0.4*(len(df[hue].unique())-1)/2 # center x point of the bar
+
+                mean = summary[(summary[x]==xi) & (summary[hue]==hj)]['mean'].item()
+                sem  = summary[(summary[x]==xi) & (summary[hue]==hj)]['sem'].item()
+                if plot =='bar':
+                    self.ax.errorbar(bar_x, mean, yerr=sem, color='black', capsize=15,
+                            fmt='none', zorder=20, capthick=4, elinewidth=4)# error bar
+                elif plot =='line':
+                    self.ax.errorbar(bar_x, mean, yerr=sem, color=palette[hj], capsize=15,
+                            fmt='none', zorder=20, capthick=4, elinewidth=4)
+    
+        handles, labels = self.ax.get_legend_handles_labels()
+        if plot =='bar':
+            self.ax.legend(handles[-len(df[hue].unique()):], labels[-len(df[hue].unique()):], title=None,frameon=False,loc=legend_loc,fontsize=legend_fontsize, )
+        elif plot =='line':
+            self.ax.legend(handles[:len(df[hue].unique()):], labels[:len(df[hue].unique()):], title=None,frameon=False,loc=legend_loc,fontsize=legend_fontsize, )
+        self.set_plot_style(self.ax,xlabel=xlabel,ylabel=ylabel,xticklabels=xticklabels,
+                                fontsize_xlabel=fontsize_xlabel,fontsize_ylabel=fontsize_ylabel,fontsize_xtick=fontsize_xtick,fontsize_ytick=fontsize_ytick,
+                                y_major_locator=y_major_locator,x_rotation=x_rotation,percent_mode=percent_mode)
+        return self
