@@ -10,6 +10,8 @@ It provides easy-to-use wrappers for t-tests, repeated-measures ANOVA, and custo
 
 ```bash
 pip install git+https://github.com/JennyWangw/statistics_Y_plot.git 
+pip install git+https://github.com/JennyWangw/statistics_Y_plot.git@main
+
 ```
 
 ---
