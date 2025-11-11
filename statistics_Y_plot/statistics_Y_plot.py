@@ -443,7 +443,7 @@ class statistics_Y_plot:
     #———————————————————————visualization—————————————————————————————————————————————
     def set_plot_style(self, ax, xlabel='', ylabel='', xticklabels=None,
                        xlabelpad=15,fontsize_xlabel=30, fontsize_ylabel=30, fontsize_xtick=28,fontsize_ytick=28,
-                       spine_width=5, tick_length=15, y_major_locator=3,x_rotation=0,percent_mode=None):
+                       spine_width=5, tick_length=15, y_major_locator=3,x_major_locator=1,x_rotation=0,percent_mode=None,xticklabels_adjust=True):
 
         """
         Standardize the styling of a matplotlib Axes object.
@@ -485,8 +485,7 @@ class statistics_Y_plot:
         """
         ax.set_xlabel(xlabel, fontsize=fontsize_xlabel, fontdict={'family': 'Arial'}, labelpad=xlabelpad)
         ax.set_ylabel(ylabel, fontsize=fontsize_ylabel, fontdict={'family': 'Arial'})
-        
-        if xticklabels is not None:
+        if (xticklabels_adjust and (xticklabels is not None)):
             plt.xticks(range(len(xticklabels)), labels=xticklabels,rotation=x_rotation)
         plt.xticks(fontsize=fontsize_xtick)
         plt.yticks(fontsize=fontsize_ytick)
@@ -500,6 +499,7 @@ class statistics_Y_plot:
 
         # Set y-axis major tick spacing
         ax.yaxis.set_major_locator(MultipleLocator(y_major_locator))
+        ax.xaxis.set_major_locator(MultipleLocator(x_major_locator))
 
         # Format y-axis as percentage if requested
         def percent_formatter(x, pos):
@@ -507,15 +507,13 @@ class statistics_Y_plot:
         if percent_mode:
             ax.yaxis.set_major_formatter(FuncFormatter(percent_formatter))
 
-
-        sns.despine()
         plt.tight_layout()
 
 
     def plot_with_scatter(
         self, data, palette=None, p_value=None,plot='bar',
-        xlabel='', ylabel='', xticklabels=None, figsize=(6,5),
-        fontsize_xlabel=30, fontsize_ylabel=30, fontsize_xtick=28,fontsize_ytick=28,y_major_locator=3,x_rotation=0,percent_mode=None,):
+        xlabel='', ylabel='', xticklabels=None, figsize=(6,5),errorbar_color='black',scatter_color='white',
+        fontsize_xlabel=30, fontsize_ylabel=30, fontsize_xtick=28,fontsize_ytick=28,y_major_locator=3,x_major_locator=1,x_rotation=0,percent_mode=None,ax=None):
         """
         Create a combined plot with bar/violin, scatter, and error bars.
     
@@ -557,13 +555,27 @@ class statistics_Y_plot:
         matplotlib.axes.Axes
             The axes object of the created plot.
         """
-        self.fig, self.ax = plt.subplots(figsize=figsize)
+        if ax is None:
+            self.fig, self.ax = plt.subplots(figsize=figsize)
+        else:
+            self.ax = ax
+        
         x_col='group'
         y_col='value'
         df_dict = {
             x_col: np.concatenate([[xticklabels[i]]*len(data[i]) for i in range(len(data))]),
             y_col: np.concatenate(data)}
         df = pd.DataFrame(df_dict)
+        
+        if np.issubdtype(df[x_col].dtype, np.number):#number
+            x_coords = df[x_col].unique()
+            xticklabels_adjust=None
+        else:#（str / category）
+            xticklabels_adjust=True
+            if plot=='bar':
+                x_coords = [patch.get_x() + patch.get_width()/2 for patch in ax.patches]
+            else:
+                x_coords = np.arange(len(xticklabels))
 
         
         if plot=='violin':
@@ -572,6 +584,9 @@ class statistics_Y_plot:
                 violin.set_alpha(0.3)   # Set transparency (alpha) for each PolyCollection
         elif plot=='bar':
             sns.barplot(data=df,x=x_col,y=y_col,order=xticklabels,palette=palette,alpha=0.3,ci=0,ax=self.ax)
+        elif plot=='line':
+            sns.lineplot(data=df,x=x_col,y=y_col,palette=palette,alpha=0.3,ci=0,linewidth=5,ax=self.ax)
+
         
         # errorbar + mean
         means, sems = [], []
@@ -581,20 +596,26 @@ class statistics_Y_plot:
             sem = group.std(ddof=1) / np.sqrt(len(group))
             means.append(mean)
             sems.append(sem)
-            self.ax.plot(i, mean, 'o', color='black', markersize=6, zorder=3) #mean
-            self.ax.errorbar(i, mean, yerr=sem, color='black', capsize=15,
+            x_pos = x_coords[i]
+            self.ax.plot(x_pos, mean, 'o', color=errorbar_color, markersize=6, zorder=3) #mean
+            self.ax.errorbar(x_pos, mean, yerr=sem, color=errorbar_color, capsize=15,
                         fmt='none', zorder=20, capthick=4, elinewidth=4)# error bar
         # scatter (jitter)
-        sns.stripplot(data=df,x=x_col,y=y_col,order=xticklabels,jitter=True,color='white',edgecolor='black',linewidth=1.5, 
+        if np.issubdtype(df[x_col].dtype, np.number):
+            jitter_amount = 0.05
+            x_jitter = df[x_col] + np.random.uniform(-jitter_amount, jitter_amount, size=len(df))
+            ax.scatter(x_jitter, df[y_col], color=scatter_color, edgecolor='black', alpha=0.5)
+        else:
+            sns.stripplot(data=df,x=x_col,y=y_col,order=xticklabels,jitter=True,color=scatter_color,edgecolor='black',linewidth=1.5, 
                       alpha=0.5,size=6,zorder=3,ax=self.ax)
         self.set_plot_style(self.ax,xlabel=xlabel,ylabel=ylabel,xticklabels=xticklabels,
                             fontsize_xlabel=fontsize_xlabel,fontsize_ylabel=fontsize_ylabel,fontsize_xtick=fontsize_xtick,fontsize_ytick=fontsize_ytick,
-                            y_major_locator=y_major_locator,x_rotation=x_rotation,percent_mode=percent_mode)
+                            y_major_locator=y_major_locator,x_major_locator=x_major_locator,x_rotation=x_rotation,percent_mode=percent_mode,xticklabels_adjust=xticklabels_adjust)
         return self
 
     def plot_two_factor_with_hue(self, df, x, y, hue,plot='bar', palette=None, figsize=(6,5),xlabel='', ylabel='',
                              xticklabels=None, fontsize_xlabel=30,fontsize_ylabel=30,fontsize_xtick=28,fontsize_ytick=28,
-                             y_major_locator=3,x_rotation=0,percent_mode=None,legend_loc=(1,0.9),legend_fontsize=20):
+                             y_major_locator=3,x_rotation=0,percent_mode=None,legend_loc=(1,0.9),legend_fontsize=20,x_major_locator=1):
         '''
         Parameters
         ----------
@@ -691,5 +712,5 @@ class statistics_Y_plot:
             self.ax.legend(handles[:len(df[hue].unique()):], labels[:len(df[hue].unique()):], title=None,frameon=False,loc=legend_loc,fontsize=legend_fontsize, )
         self.set_plot_style(self.ax,xlabel=xlabel,ylabel=ylabel,xticklabels=xticklabels,
                                 fontsize_xlabel=fontsize_xlabel,fontsize_ylabel=fontsize_ylabel,fontsize_xtick=fontsize_xtick,fontsize_ytick=fontsize_ytick,
-                                y_major_locator=y_major_locator,x_rotation=x_rotation,percent_mode=percent_mode)
+                                y_major_locator=y_major_locator,x_rotation=x_rotation,percent_mode=percent_mode,x_major_locator=x_major_locator)
         return self
