@@ -592,7 +592,7 @@ class statistics_Y_plot:
                             y_major_locator=y_major_locator,x_rotation=x_rotation,percent_mode=percent_mode)
         return self
 
-    def two_factor_with_hue(self, df, x, y, hue,plot='bar', palette=None, figsize=(6,5),xlabel='', ylabel='',
+    def plot_two_factor_with_hue(self, df, x, y, hue,plot='bar', palette=None, figsize=(6,5),xlabel='', ylabel='',
                              xticklabels=None, fontsize_xlabel=30,fontsize_ylabel=30,fontsize_xtick=28,fontsize_ytick=28,
                              y_major_locator=3,x_rotation=0,percent_mode=None,legend_loc=(1,0.9),legend_fontsize=20):
         '''
