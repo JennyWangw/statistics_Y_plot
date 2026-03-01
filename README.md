@@ -15,7 +15,7 @@ pip install git+https://github.com/JennyWangw/statistics_Y_plot.git
 
 ## Update
 ```bash
-pip install --upgrade --force-reinstall git+https://github.com/JennyWangw/statistics_Y_plot.git
+pip install --upgrade --no-cache-dir git+https://github.com/JennyWangw/statistics_Y_plot.git
 
 ```
 ---
@@ -222,7 +222,7 @@ plt_obj.ax.axhline(y=0.5, color="black", linestyle="--", linewidth=5)
 plt_obj.ax.set_ylim(0.3, 1.0)
 ```
 
-![plot_with_scatter demo](assets/figure1.png)
+![plot_with_scatter demo](figure1.png)
 
 ---
 
@@ -243,7 +243,7 @@ plt_obj = sp.paired_scatter_kde_plot([a1, a2],
                                      xlim=(-0.5, 1.5), percent_mode=False)
 ```
 
-![paired_scatter_kde_plot demo](assets/figure2.png)
+![paired_scatter_kde_plot demo](figure2.png)
 
 ---
 
@@ -271,7 +271,7 @@ plt_obj = sp.two_factor_with_hue(df, x="condition A", y="Value", hue="condition 
                                  y_major_locator=0.5)
 ```
 
-![two_factor_with_hue demo](assets/figure3.png)
+![two_factor_with_hue demo](figure3.png)
 ---
 
 ## Helper Function
