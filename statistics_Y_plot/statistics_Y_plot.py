@@ -25,7 +25,7 @@ class statistics_Y_plot:
 
     # -------------------- Utility Functions --------------------
     @staticmethod
-    def p_to_sig(self, p):
+    def p_to_sig(p):
         """
         Convert a p-value to a significance annotation.
 
@@ -50,7 +50,7 @@ class statistics_Y_plot:
             return 'n.s.'
     
     @staticmethod
-    def data_to_long(self, data, factorA_name='FactorA', factorB_name='FactorB', subject_prefix='S',factorA_levels=None,factorB_levels=None, missing='keep_subject'):
+    def data_to_long(data, factorA_name='FactorA', factorB_name='FactorB', subject_prefix='S',factorA_levels=None,factorB_levels=None, missing='keep_subject'):
         """
         Convert nested lists or arrays into a long-format pandas DataFrame.
         
