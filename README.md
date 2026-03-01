@@ -13,6 +13,11 @@ pip install git+https://github.com/JennyWangw/statistics_Y_plot.git
 
 ```
 
+## Update
+```bash
+pip install --upgrade --force-reinstall git+https://github.com/JennyWangw/statistics_Y_plot.git
+
+```
 ---
 
 ## Key Features
@@ -30,7 +35,7 @@ pip install git+https://github.com/JennyWangw/statistics_Y_plot.git
    - Supports percentage-formatted y-axis for proportions
    - Advanced customization: adjustable tick spacing, rotated labels, and flexible axis formatting
 
-![Example Plot](example_plot.png)
+![Example Plot](figure1.png)
 
 ---
 ## 🧩 Quick Start
@@ -193,29 +198,80 @@ A:B           0.80      1.0      2.0   0.46    n.s.
 
 ## Plotting
 
-**Function**
+All plotting functions return `self`, and you can access the matplotlib handles via `self.fig` and `self.ax`.
+
+### 1) Bar/violin + scatter + mean±SEM (`plot_with_scatter`)
 
 ```python
-plot_with_scatter(data, xticklabels, plot='bar' or 'violin')
+import numpy as np
+
+np.random.seed(42)
+a = np.random.normal(0.65, 0.2, 50)
+b = np.random.normal(0.80, 0.5, 50)
+c = np.random.normal(0.40, 0.1, 50)
+
+p_ab = sp.ttest_ind_with_precheck(a, b)["p"]
+plt_obj = sp.plot_with_scatter([a, b, c], plot="bar",
+                               palette={"A":"orange","B":"pink","C":"red"},
+                               xlabel="Condition", ylabel="Values",
+                               xticklabels=["A","B","C"],
+                               figsize=(6,5), y_major_locator=0.2, percent_mode=True)
+
+# chance line + manual significance (customize as you like)
+plt_obj.ax.axhline(y=0.5, color="black", linestyle="--", linewidth=5)
+plt_obj.ax.set_ylim(0.3, 1.0)
 ```
 
-**Example**
+![plot_with_scatter demo](assets/figure1.png)
+
+---
+
+### 2) Paired scatter + connections + half-KDE (`paired_scatter_kde_plot`)
 
 ```python
-data = [np.random.rand(10)*5, np.random.rand(10)*6, np.random.rand(10)*7]
-sp.plot_with_scatter(
-    data=data,
-    xticklabels=['Cond1', 'Cond2', 'Cond3'],
-    plot='bar',
-    xlabel='Condition',
-    ylabel='Response Time (s)',
-    percent_mode=None
-)
-plt.show()
+import numpy as np
+
+np.random.seed(42)
+a1 = np.random.normal(0.65, 0.2, 50)
+a2 = np.random.normal(0.80, 0.5, 50)
+
+plt_obj = sp.paired_scatter_kde_plot([a1, a2],
+                                     palette={"A1":"#4a90e2","A2":"#e24a33"},
+                                     xticklabels=["A1","A2"],
+                                     ylabel="Values",
+                                     figsize=(4,6), y_major_locator=0.6,
+                                     xlim=(-0.5, 1.5), percent_mode=False)
 ```
 
-This creates a **bar + scatter + error bar plot** with customizable aesthetics.
+![paired_scatter_kde_plot demo](assets/figure2.png)
 
+---
+
+### 3) Two-factor plot with hue (`two_factor_with_hue`)
+
+Use `data_to_long` to convert nested inputs to long-format first (recommended for two-factor plotting).
+
+```python
+import numpy as np
+
+np.random.seed(42)
+data_A1B1 = np.random.normal(0.65, 0.1, 50)
+data_A2B1 = np.random.normal(0.90, 0.1, 50)
+data_A1B2 = np.random.normal(0.35, 0.1, 50)
+data_A2B2 = np.random.normal(0.85, 0.1, 50)
+
+df = sp.data_to_long([[data_A1B1, data_A2B1],
+                      [data_A1B2, data_A2B2]],
+                     factorA_name="condition A", factorB_name="condition B",
+                     factorA_levels=["A1","A2"], factorB_levels=["B1","B2"])
+
+plt_obj = sp.two_factor_with_hue(df, x="condition A", y="Value", hue="condition B",
+                                 plot="bar", xticklabels=["A1","A2"],
+                                 xlabel="Condition", ylabel="Value",
+                                 y_major_locator=0.5)
+```
+
+![two_factor_with_hue demo](assets/figure3.png)
 ---
 
 ## Helper Function
