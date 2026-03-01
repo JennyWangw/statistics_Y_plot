@@ -25,7 +25,7 @@ class statistics_Y_plot:
 
     # -------------------- Utility Functions --------------------
     @staticmethod
-    def p_to_sig(p):
+    def p_to_sig(self, p):
         """
         Convert a p-value to a significance annotation.
 
@@ -50,7 +50,7 @@ class statistics_Y_plot:
             return 'n.s.'
     
     @staticmethod
-    def data_to_long(data, factorA_name='FactorA', factorB_name='FactorB', subject_prefix='S',factorA_levels=None,factorB_levels=None):
+    def data_to_long(self, data, factorA_name='FactorA', factorB_name='FactorB', subject_prefix='S',factorA_levels=None,factorB_levels=None, missing='keep_subject'):
         """
         Convert nested lists or arrays into a long-format pandas DataFrame.
         
@@ -63,6 +63,12 @@ class statistics_Y_plot:
         ----------
         data : list of lists or arrays
             Nested data structure with shape [factorB][factorA][subjects].
+            Example (2x3 design):
+            data = [
+                    [A1, A2, A3],   # B1; each A* is a length-nSub list/array
+                    [A1, A2, A3]    # B2
+                   ]
+            where A1 = [sub1_values, sub2_values, ..., subN_values], same subject order used in every cell.
         factorA_name : str, optional
             Column name for the first factor (default 'FactorA').
         factorB_name : str, optional
@@ -73,33 +79,55 @@ class statistics_Y_plot:
             default:['A1','A2',...]
         factorB_levels: list, optinal
             default:['B1','B2',...]
+        missing:
+            - 'keep_subject' (default): keep all subjects; NaN stays in the output
+            - 'drop_subject': drop any subject that has missing/non-finite value in ANY cell (complete-case)
+
         Returns
         -------
         pandas.DataFrame
             Long-format DataFrame with columns: 'Subject', factorA_name, factorB_name, 'Value'.
         """
 
-        long_data = []
         nB = len(data)
         nA = len(data[0]) if nB > 0 else 0
-        
-        # default A1/A2..., B1/B2...
-        if factorA_levels is None:
-            factorA_levels = [f'A{i+1}' for i in range(nA)]
-        if factorB_levels is None:
-            factorB_levels = [f'B{i+1}' for i in range(nB)]
+        if nB == 0 or nA == 0: return pd.DataFrame(columns=['Subject', factorA_name, factorB_name, 'Value'])
+        if factorA_levels is None: factorA_levels = [f'A{i+1}' for i in range(nA)]
+        if factorB_levels is None: factorB_levels = [f'B{i+1}' for i in range(nB)]
     
-        for b_idx, b_level in enumerate(data, start=0):
-            for a_idx, a_list in enumerate(b_level, start=0):
-                if not hasattr(a_list, '__iter__') or isinstance(a_list, (str, bytes)):
-                    a_list = [a_list]
-                for sub_idx, value in enumerate(a_list, start=1):
-                    long_data.append({
-                        'Subject': f'{subject_prefix}{sub_idx}',
-                        factorA_name: factorA_levels[a_idx],
-                        factorB_name: factorB_levels[b_idx],
-                        'Value': value
-                    })
+        # normalize each cell to 1D np.array
+        cells = []
+        nSub = None
+        for b in range(nB):
+            if len(data[b]) != nA: raise ValueError(f"data[{b}] has {len(data[b])} A-levels, expected {nA}.")
+            for a in range(nA):
+                arr = data[b][a]
+                if not hasattr(arr, '__iter__') or isinstance(arr, (str, bytes)): arr = [arr]
+                arr = np.asarray(arr, dtype=float).ravel()
+                if nSub is None: nSub = arr.size
+                if arr.size != nSub: raise ValueError(f"Cell (B{b+1},A{a+1}) has nSub={arr.size}, expected {nSub}.")
+                cells.append(arr)
+    
+        # drop subjects with any non-finite across all cells
+        if missing == 'drop_subject':
+            M = np.column_stack(cells)  # shape: (nSub, nB*nA)
+            keep = np.all(np.isfinite(M), axis=1)
+            kept_idx = np.where(keep)[0]  # original subject indices (0-based)
+            cells = [c[keep] for c in cells]
+            sub_ids = kept_idx + 1
+        elif missing == 'keep_subject':
+            sub_ids = np.arange(1, nSub + 1)
+        else:
+            raise ValueError("missing must be 'keep_subject' or 'drop_subject'.")
+    
+        # build long df (B-major then A)
+        long_data = []
+        k = 0
+        for b_idx in range(nB):
+            for a_idx in range(nA):
+                arr = cells[k]; k += 1
+                for i, val in enumerate(arr):
+                    long_data.append({'Subject': f'{subject_prefix}{sub_ids[i]}', factorA_name: factorA_levels[a_idx], factorB_name: factorB_levels[b_idx], 'Value': val})
         return pd.DataFrame(long_data)
 
     def run_pairedT_for_posthoc(self, df_long, factor, ttest_func):
@@ -209,12 +237,11 @@ class statistics_Y_plot:
         result : dict
             Contains t-statistic, p-value, df, and optionally summary statistics.
         """
-        data = np.array(data)
-        data_clean = data[~np.isnan(data)]
+        data=np.asarray(data,dtype=float); n_removed=int(np.isnan(data).sum()); data_clean=data[~np.isnan(data)]
         df = len(data_clean) - 1
 
-        if np.isnan(data).sum() > 0:
-            print(f" Removed {len(data_clean)} NaN value(s) out of {len(data)} total samples.")
+        if n_removed>0 > 0:
+            print(f"Removed {n_removed} NaN value(s) out of {data.size} total samples.")
             
         res = stats.ttest_1samp(data_clean, popmean=popmean, nan_policy=nan_policy)
         
@@ -508,14 +535,17 @@ class statistics_Y_plot:
             ax.yaxis.set_major_formatter(FuncFormatter(percent_formatter))
 
 
-        sns.despine()
-        plt.tight_layout()
+        sns.despine(ax=ax)
+        try: ax.figure.tight_layout()
+        except Exception: pass
 
 
     def plot_with_scatter(
         self, data, palette=None, p_value=None,plot='bar',
         xlabel='', ylabel='', xticklabels=None, figsize=(6,5),
-        fontsize_xlabel=30, fontsize_ylabel=30, fontsize_xtick=28,fontsize_ytick=28,y_major_locator=3,x_rotation=0,percent_mode=None,):
+        scatter_color='white',scatter_edgecolor='black',scatter_size=6,
+        fontsize_xlabel=30, fontsize_ylabel=30, fontsize_xtick=28,fontsize_ytick=28,
+        y_major_locator=3,x_rotation=0,percent_mode=None,):
         """
         Create a combined plot with bar/violin, scatter, and error bars.
     
@@ -585,12 +615,120 @@ class statistics_Y_plot:
             self.ax.errorbar(i, mean, yerr=sem, color='black', capsize=15,
                         fmt='none', zorder=20, capthick=4, elinewidth=4)# error bar
         # scatter (jitter)
-        sns.stripplot(data=df,x=x_col,y=y_col,order=xticklabels,jitter=True,color='white',edgecolor='black',linewidth=1.5, 
+        sns.stripplot(data=df,x=x_col,y=y_col,order=xticklabels,jitter=True,color=scatter_color,edgecolor=scatter_edgecolor,linewidth=1.5, 
                       alpha=0.5,size=6,zorder=3,ax=self.ax)
         self.set_plot_style(self.ax,xlabel=xlabel,ylabel=ylabel,xticklabels=xticklabels,
                             fontsize_xlabel=fontsize_xlabel,fontsize_ylabel=fontsize_ylabel,fontsize_xtick=fontsize_xtick,fontsize_ytick=fontsize_ytick,
                             y_major_locator=y_major_locator,x_rotation=x_rotation,percent_mode=percent_mode)
         return self
+
+
+
+
+    def paired_scatter_kde_plot(self, data, xticklabels=None, xlabel=None, ylabel=None,figsize=(4,6),palette=None, 
+                                jitter=0.1, kde_width=0.2,scatter_alpha=0.6, line_alpha=0.4, 
+                                ylim=None, xlim=None, connect_pairs=True,
+                                fontsize_xlabel=30, fontsize_ylabel=30, fontsize_xtick=28,fontsize_ytick=28,
+                                y_major_locator=3,x_rotation=0,percent_mode=None,
+                                seed=None,show_kde=True,kde_points=200,kde_pad=0.1,
+                                connect_color="gray",connect_lw=2.0,scatter_size=50,scatter_edgecolor="k",scatter_lw=0.6,):
+        """
+        Plot paired scatter + mean±SEM + (half) KDE density for multiple conditions.
+    
+        Parameters
+        ----------
+        data : Sequence[ArrayLike]
+            A sequence of 1D arrays/lists. Each element is one condition/group.
+            If `connect_pairs=True`, pairing is by index across groups, so all groups must have the same length.
+        xticklabels : Sequence[str] | None
+            Labels for x ticks. Required when `palette` is a dict.
+        palette : None | Sequence[color] | dict
+            - None: use matplotlib tab10 colors
+            - sequence: one color per group
+            - dict: map from each xticklabels item to a color
+        jitter : float
+            Horizontal jitter width around each x position.
+        kde_width : float
+            Maximum horizontal width of the half-KDE (in x-axis units).
+        kde_pad : float
+            Padding for KDE evaluation range, as a fraction of data range (ptp). If ptp==0, a small fallback is used.
+        seed : int | None
+            Random seed for jitter reproducibility.
+        show_kde : bool
+            Whether to draw half-KDE density (requires SciPy).
+    
+        Notes
+        -----
+        - KDE uses `scipy.stats.gaussian_kde`. For n<2 or degenerate data, KDE is skipped gracefully.
+        - Mean±SEM: for n<2, SEM is set to 0 (errorbar still drawn but without variability).
+    
+        Returns
+        -------
+        self or (self, fig, ax)
+        """
+    
+        if data is None or len(data) == 0:
+            raise ValueError("`data` must be a non-empty sequence of 1D arrays/lists.")
+    
+        n = len(data)
+        x = np.arange(n)
+        rng = np.random.default_rng(seed)
+        self.fig, self.ax = plt.subplots(figsize=figsize)
+    
+        # Colors
+        if palette is None:
+            colors = plt.cm.tab10.colors[:n]
+        elif isinstance(palette, dict):
+            if xticklabels is None:
+                raise ValueError("When `palette` is a dict, `xticklabels` must be provided.")
+            missing = [k for k in xticklabels if k not in palette]
+            if missing:
+                raise ValueError(f"`palette` is missing keys for xticklabels: {missing}")
+            colors = [palette[k] for k in xticklabels]
+        else:
+            if len(palette) < n:
+                raise ValueError(f"`palette` has length {len(palette)} but needs >= {n}.")
+            colors = palette[:n]
+    
+        # Pairwise connections (index-based)
+        if connect_pairs:
+            lens = [len(d) for d in data]
+            if len(set(lens)) != 1:
+                warnings.warn(f"connect_pairs=True but group lengths differ: {lens}. Skipping pair connections.")
+            else:
+                for i in range(lens[0]):
+                    self.ax.plot(x, [np.asarray(d)[i] for d in data], color=connect_color, alpha=line_alpha, lw=connect_lw, zorder=1)
+    
+        # Optional KDE
+        kde_fn = None
+        if show_kde:
+            try: from scipy.stats import gaussian_kde; kde_fn=gaussian_kde
+            except Exception as e: warnings.warn(f"SciPy gaussian_kde not available ({e}). Skipping KDE.")
+        if connect_pairs:
+            lens=[len(d) for d in data]
+            if len(set(lens))!=1: warnings.warn(f"connect_pairs=True but group lengths differ: {lens}. Skipping pair connections.")
+            else:
+                for i in range(lens[0]): self.ax.plot(x, [np.asarray(d)[i] for d in data], color=connect_color, alpha=line_alpha, lw=connect_lw, zorder=1)
+        for xi,d,c in zip(x,data,colors):
+            d=np.asarray(d,dtype=float); d=d[np.isfinite(d)]
+            if d.size==0: continue
+            xj=np.full(d.size, xi, float)+(rng.random(d.size)-0.5)*float(jitter)
+            self.ax.scatter(xj, d, color=c, alpha=scatter_alpha, edgecolor=scatter_edgecolor, linewidths=scatter_lw, s=scatter_size, zorder=2)
+            m=float(np.mean(d)); sem=float(np.std(d,ddof=1)/np.sqrt(d.size)) if d.size>=2 else 0.0
+            self.ax.errorbar(xi, m, yerr=sem, fmt="o", color="k", ecolor="k", elinewidth=5, capsize=15, capthick=3, markersize=0, zorder=3)
+            if kde_fn is not None and d.size>=2:
+                try:
+                    ptp=float(np.ptp(d)); pad=(ptp*float(kde_pad)) if ptp>0 else max(1e-6, float(np.std(d))*0.5)
+                    y=np.linspace(d.min()-pad, d.max()+pad, int(kde_points)); den=kde_fn(d)(y); den_max=float(np.max(den))
+                    if den_max>0: den=den/den_max*float(kde_width); self.ax.fill_betweenx(y, xi, xi+den, color=c, alpha=0.3, zorder=0)
+                except Exception as e: warnings.warn(f"KDE failed at group {xi}: {e}. Skipping KDE for this group.")
+        self.ax.set_xticks(x)
+        if ylim is not None: self.ax.set_ylim(ylim)
+        if xlim is not None: self.ax.set_xlim(xlim)
+        self.set_plot_style(self.ax, xlabel=xlabel, ylabel=ylabel, xticklabels=xticklabels, fontsize_xlabel=fontsize_xlabel, fontsize_ylabel=fontsize_ylabel, fontsize_xtick=fontsize_xtick, fontsize_ytick=fontsize_ytick, y_major_locator=y_major_locator, x_rotation=x_rotation, percent_mode=percent_mode)
+        return self
+
+
 
     def two_factor_with_hue(self, df, x, y, hue,plot='bar', palette=None, figsize=(6,5),xlabel='', ylabel='',
                              xticklabels=None, fontsize_xlabel=30,fontsize_ylabel=30,fontsize_xtick=28,fontsize_ytick=28,
