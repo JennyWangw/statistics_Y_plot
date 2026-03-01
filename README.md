@@ -200,7 +200,14 @@ A:B           0.80      1.0      2.0   0.46    n.s.
 
 All plotting functions return `self`, and you can access the matplotlib handles via `self.fig` and `self.ax`.
 
-### 1) Bar/violin + scatter + mean±SEM (`plot_with_scatter`)
+**Function**
+
+```python
+plot_with_scatter(data, xticklabels, plot='bar' or 'violin')
+```
+
+**Example**
+##### 1) Bar/violin + scatter + mean±SEM (`plot_with_scatter`)
 
 ```python
 import numpy as np
@@ -226,7 +233,14 @@ plt_obj.ax.set_ylim(0.3, 1.0)
 
 ---
 
-### 2) Paired scatter + connections + half-KDE (`paired_scatter_kde_plot`)
+**Function**
+
+```python
+sp.paired_scatter_kde_plot(data)
+```
+
+**Example**
+##### 2) Paired scatter + connections + half-KDE (`paired_scatter_kde_plot`)
 
 ```python
 import numpy as np
@@ -247,7 +261,14 @@ plt_obj = sp.paired_scatter_kde_plot([a1, a2],
 
 ---
 
-### 3) Two-factor plot with hue (`two_factor_with_hue`)
+**Function**
+
+```python
+sp.two_factor_with_hue(data,x="A", y="Value", hue="B",plot="bar" or "line")
+```
+
+**Example**
+#####  3) Two-factor plot with hue (`two_factor_with_hue`)
 
 Use `data_to_long` to convert nested inputs to long-format first (recommended for two-factor plotting).
 
